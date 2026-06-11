@@ -1,0 +1,18 @@
+{
+  "name": "campus-internship-matching",
+  "version": "1.0.0",
+  "description": "校园实习岗位匹配系统 - 全栈 Docker 部署",
+  "scripts": {
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "smoke": "node smoke-test/smoke.test.js",
+    "smoke:docker": "API_BASE=http://localhost:3000/api node smoke-test/smoke.test.js",
+    "test:backend": "cd backend && npm test"
+  },
+  "author": "",
+  "license": "MIT"
+}
