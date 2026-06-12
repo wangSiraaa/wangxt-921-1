@@ -16,6 +16,7 @@ export default function StudentDashboard() {
   const [resumeInfo, setResumeInfo] = useState({ resume: null, review: null, student: null })
   const [reviewStatus, setReviewStatus] = useState(null)
   const [appliedJobIds, setAppliedJobIds] = useState(new Set())
+  const [profileLoading, setProfileLoading] = useState(true)
 
   const loadJobs = async () => {
     setLoading(true)
@@ -36,23 +37,31 @@ export default function StudentDashboard() {
   }
 
   const loadResume = async () => {
+    setProfileLoading(true)
     try {
-      const [res1, res2] = await Promise.all([resumeAPI.my(), reviewAPI.myStatus()])
-      setResumeInfo(res1.data)
-      setReviewStatus(res2.data.review?.status)
+      const res = await resumeAPI.my()
+      const { resume = null, review = null, student = null } = res.data || {}
+      setResumeInfo({ resume, review, student })
+      setReviewStatus(review?.status || null)
     } catch (e) { console.error(e) }
+    finally { setProfileLoading(false) }
   }
 
   useEffect(() => {
     if (location.pathname.match(/^\/student\/?$/)) {
       loadJobs()
       loadApplications()
+      loadResume()
     }
     if (location.pathname === '/student/resume') loadResume()
     if (location.pathname === '/student/applications') loadApplications()
   }, [location.pathname, filters])
 
   const handleApply = async (job) => {
+    if (profileLoading) {
+      alert('正在加载个人信息，请稍候...')
+      return
+    }
     if (!resumeInfo?.resume) {
       alert('请先上传简历并等待资格审核通过')
       return
@@ -63,6 +72,10 @@ export default function StudentDashboard() {
     }
     if (reviewStatus === 'rejected') {
       alert('资格审核未通过，不可投递')
+      return
+    }
+    if (job.requireInsurance && !resumeInfo.student?.hasInsurance) {
+      alert('该岗位要求提供保险材料，请在简历页面补充后再投递')
       return
     }
     setApplyErrors([])
@@ -98,16 +111,20 @@ export default function StudentDashboard() {
         <div className="stat-card warning">
           <div className="stat-label">资格审核状态</div>
           <div className="stat-value" style={{ fontSize: 18 }}>
-            {!reviewStatus && '未上传简历'}
-            {reviewStatus === 'pending' && <span style={{ color: '#e6a23c' }}>待审核</span>}
-            {reviewStatus === 'approved' && <span style={{ color: '#67c23a' }}>已通过</span>}
-            {reviewStatus === 'rejected' && <span style={{ color: '#f56c6c' }}>未通过</span>}
+            {profileLoading && <span style={{ color: '#909399' }}>加载中...</span>}
+            {!profileLoading && !reviewStatus && resumeInfo.resume && <span style={{ color: '#909399' }}>暂无记录</span>}
+            {!profileLoading && !reviewStatus && !resumeInfo.resume && <span style={{ color: '#909399' }}>未上传简历</span>}
+            {!profileLoading && reviewStatus === 'pending' && <span style={{ color: '#e6a23c' }}>⏳ 待审核</span>}
+            {!profileLoading && reviewStatus === 'approved' && <span style={{ color: '#67c23a' }}>✅ 已通过</span>}
+            {!profileLoading && reviewStatus === 'rejected' && <span style={{ color: '#f56c6c' }}>❌ 未通过</span>}
           </div>
         </div>
         <div className="stat-card danger">
           <div className="stat-label">保险材料</div>
           <div className="stat-value" style={{ fontSize: 18 }}>
-            {resumeInfo.student?.hasInsurance ? <span style={{ color: '#67c23a' }}>已准备</span> : <span style={{ color: '#f56c6c' }}>未准备</span>}
+            {profileLoading && <span style={{ color: '#909399' }}>加载中...</span>}
+            {!profileLoading && !resumeInfo.student && <span style={{ color: '#909399' }}>未上传</span>}
+            {!profileLoading && resumeInfo.student?.hasInsurance ? <span style={{ color: '#67c23a' }}>✅ 已准备</span> : !profileLoading && resumeInfo.student && <span style={{ color: '#f56c6c' }}>❌ 未准备</span>}
           </div>
         </div>
       </div>
@@ -194,13 +211,23 @@ export default function StudentDashboard() {
                     <button
                       className="btn btn-sm btn-primary"
                       style={{ flex: 1 }}
-                      disabled={isApplied || isExpired || job.status !== 'open' || job.remainingQuota <= 0 || reviewStatus !== 'approved'}
+                      disabled={
+                        profileLoading ||
+                        isApplied ||
+                        isExpired ||
+                        job.status !== 'open' ||
+                        job.remainingQuota <= 0 ||
+                        reviewStatus !== 'approved'
+                      }
                       onClick={() => handleApply(job)}
                     >
                       {isApplied ? '已投递' :
-                        reviewStatus !== 'approved' ? '审核未通过' :
-                          isExpired ? '已截止' :
-                            job.remainingQuota <= 0 ? '招满' : '立即投递'}
+                        profileLoading ? '加载中...' :
+                          reviewStatus === 'pending' ? '审核中' :
+                            reviewStatus === 'rejected' ? '审核未通过' :
+                              !reviewStatus ? '请先上传简历' :
+                                isExpired ? '已截止' :
+                                  job.remainingQuota <= 0 ? '招满' : '立即投递'}
                     </button>
                   </div>
                 </div>
