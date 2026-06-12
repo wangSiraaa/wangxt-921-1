@@ -311,7 +311,12 @@ const Application = sequelize.define('Application', {
     }
   },
   status: {
-    type: DataTypes.ENUM('applied', 'reviewing', 'accepted', 'rejected', 'confirmed', 'disabled'),
+    type: DataTypes.ENUM(
+      'applied', 'reviewing', 'accepted', 'rejected', 'confirmed',
+      'disabled', 'agreement_generated', 'agreement_student_filled',
+      'agreement_mentor_confirmed', 'agreement_signed', 'onboarded',
+      'withdrawn', 'transferred'
+    ),
     defaultValue: 'applied'
   },
   applyTime: {
@@ -324,6 +329,15 @@ const Application = sequelize.define('Application', {
   isHireable: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+  onboardedTime: {
+    type: DataTypes.DATE
+  },
+  withdrawReason: {
+    type: DataTypes.STRING(500)
+  },
+  withdrawTime: {
+    type: DataTypes.DATE
   }
 })
 
@@ -380,6 +394,207 @@ const HiringRecord = sequelize.define('HiringRecord', {
   },
   confirmedTime: {
     type: DataTypes.DATE
+  },
+  withdrawReason: {
+    type: DataTypes.STRING(500)
+  },
+  withdrawTime: {
+    type: DataTypes.DATE
+  },
+  quotaRestored: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  }
+})
+
+const TripartiteAgreement = sequelize.define('TripartiteAgreement', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  applicationId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: Application,
+      key: 'id'
+    },
+    unique: true
+  },
+  jobId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: Job,
+      key: 'id'
+    }
+  },
+  studentId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: Student,
+      key: 'id'
+    }
+  },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: Company,
+      key: 'id'
+    }
+  },
+  teacherId: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: Teacher,
+      key: 'id'
+    }
+  },
+  agreementNo: {
+    type: DataTypes.STRING(100),
+    unique: true
+  },
+  status: {
+    type: DataTypes.ENUM(
+      'generated', 'student_filled', 'mentor_confirmed', 'signed', 'cancelled'
+    ),
+    defaultValue: 'generated'
+  },
+  insuranceMaterials: {
+    type: DataTypes.TEXT
+  },
+  insuranceFileUrl: {
+    type: DataTypes.STRING(500)
+  },
+  internshipStartDate: {
+    type: DataTypes.DATE
+  },
+  internshipEndDate: {
+    type: DataTypes.DATE
+  },
+  internshipCycle: {
+    type: DataTypes.STRING(200)
+  },
+  mentorName: {
+    type: DataTypes.STRING(100)
+  },
+  mentorTitle: {
+    type: DataTypes.STRING(100)
+  },
+  mentorPhone: {
+    type: DataTypes.STRING(20)
+  },
+  mentorEmail: {
+    type: DataTypes.STRING(100)
+  },
+  studentSignTime: {
+    type: DataTypes.DATE
+  },
+  companySignTime: {
+    type: DataTypes.DATE
+  },
+  teacherSignTime: {
+    type: DataTypes.DATE
+  },
+  signCompleted: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+  generatedTime: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  },
+  remark: {
+    type: DataTypes.TEXT
+  }
+})
+
+const PositionChange = sequelize.define('PositionChange', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  studentId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: Student,
+      key: 'id'
+    }
+  },
+  oldApplicationId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: Application,
+      key: 'id'
+    }
+  },
+  newApplicationId: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: Application,
+      key: 'id'
+    }
+  },
+  oldJobId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: Job,
+      key: 'id'
+    }
+  },
+  newJobId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: Job,
+      key: 'id'
+    }
+  },
+  status: {
+    type: DataTypes.ENUM(
+      'pending_review', 'approved', 'rejected', 'completed', 'cancelled'
+    ),
+    defaultValue: 'pending_review'
+  },
+  changeReason: {
+    type: DataTypes.TEXT
+  },
+  rejectReason: {
+    type: DataTypes.STRING(500)
+  },
+  originalSigned: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+  targetQuotaOk: {
+    type: DataTypes.BOOLEAN
+  },
+  majorMatch: {
+    type: DataTypes.BOOLEAN
+  },
+  materialDiff: {
+    type: DataTypes.TEXT
+  },
+  applyTime: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  },
+  reviewTime: {
+    type: DataTypes.DATE
+  },
+  reviewTeacherId: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: Teacher,
+      key: 'id'
+    }
   }
 })
 
@@ -416,8 +631,26 @@ HiringRecord.belongsTo(Job, { foreignKey: 'jobId' })
 HiringRecord.belongsTo(Student, { foreignKey: 'studentId' })
 HiringRecord.belongsTo(Company, { foreignKey: 'companyId' })
 
+Application.hasOne(TripartiteAgreement, { foreignKey: 'applicationId' })
+TripartiteAgreement.belongsTo(Application, { foreignKey: 'applicationId' })
+TripartiteAgreement.belongsTo(Job, { foreignKey: 'jobId' })
+TripartiteAgreement.belongsTo(Student, { foreignKey: 'studentId' })
+TripartiteAgreement.belongsTo(Company, { foreignKey: 'companyId' })
+TripartiteAgreement.belongsTo(Teacher, { foreignKey: 'teacherId' })
+Student.hasMany(TripartiteAgreement, { foreignKey: 'studentId' })
+Company.hasMany(TripartiteAgreement, { foreignKey: 'companyId' })
+
+PositionChange.belongsTo(Student, { foreignKey: 'studentId' })
+PositionChange.belongsTo(Application, { foreignKey: 'oldApplicationId', as: 'OldApplication' })
+PositionChange.belongsTo(Application, { foreignKey: 'newApplicationId', as: 'NewApplication' })
+PositionChange.belongsTo(Job, { foreignKey: 'oldJobId', as: 'OldJob' })
+PositionChange.belongsTo(Job, { foreignKey: 'newJobId', as: 'NewJob' })
+PositionChange.belongsTo(Teacher, { foreignKey: 'reviewTeacherId' })
+Student.hasMany(PositionChange, { foreignKey: 'studentId' })
+
 const initDB = async () => {
-  await sequelize.sync({ force: false })
+  const forceSync = process.env.DB_FORCE_SYNC === 'true'
+  await sequelize.sync({ force: forceSync, alter: !forceSync })
   return sequelize
 }
 
@@ -432,5 +665,7 @@ module.exports = {
   Resume,
   QualificationReview,
   Application,
-  HiringRecord
+  HiringRecord,
+  TripartiteAgreement,
+  PositionChange
 }

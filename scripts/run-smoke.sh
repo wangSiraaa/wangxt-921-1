@@ -12,7 +12,7 @@ lsof -ti:3000 2>/dev/null | xargs kill -9 2>/dev/null || true
 sleep 1
 
 echo "[1/4] 启动后端服务..."
-node src/server.js > "$LOG_FILE" 2>&1 &
+DB_FORCE_SYNC=true node src/server.js > "$LOG_FILE" 2>&1 &
 BACKEND_PID=$!
 echo "   PID: $BACKEND_PID"
 
